@@ -1,8 +1,0 @@
-Generate a premium, dark-mode "Monthly Analytics Report" printable layout for a focus tracking app called Focus10010. The layout should be optimized for an A4 portrait view. Use a sleek dark theme with neon yellow (#FFEE00) highlights.
-
-**Header:** Display "FOCUS10010 Monthly Report (28 Days)" along with the user's name and the specific date range.
-**Section 1 - Monthly Overview:** A visually striking header section highlighting the Total Monthly Hours (e.g., 160h) and the Month-over-Month change (e.g., -2% in red). 
-**Section 2 - Weekly Aggregates:** Instead of 28 individual days, create a sleek vertical timeline or a 4-row summary table representing Week 1, Week 2, Week 3, and Week 4. For each week, show the Date Range, Total Hours, and Daily Average.
-**Section 3 - Tag Distribution:** Create a visually appealing list or simulated progress bars showing the top tags for the month (e.g., Coding 40%, Deep Work 30%, Writing 20%). 
-**Section 4 - Consistency:** A highlighted metric card showing the 30-Day Consistency percentage (e.g., 85%) and Longest Streak achieved this month.
-Add a subtle footer with generation metadata and methodology.

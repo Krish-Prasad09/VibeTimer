@@ -510,7 +510,7 @@ function App() {
       <aside className={`fixed left-0 top-0 h-full w-full max-w-[400px] bg-surface/90 md:bg-surface/80 backdrop-blur-[40px] border-r border-white/10 shadow-[40px_0_80px_rgba(0,0,0,0.3)] z-[60] py-container-padding flex flex-col transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="px-6 flex justify-between items-center mb-8">
           <div>
-            <h1 className="font-h1 text-h1 font-bold text-primary">Focus10010</h1>
+            <h1 className="font-h1 text-h1 font-bold text-primary">VibeTimer</h1>
             <p className="font-body-md text-body-md text-on-surface-variant">Stay in flow</p>
           </div>
           <button className="text-primary p-2 hover:bg-white/10 rounded-full transition-colors border border-white/5" onClick={() => setSidebarOpen(false)}>

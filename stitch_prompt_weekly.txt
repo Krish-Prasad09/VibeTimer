@@ -1,7 +1,0 @@
-Generate a highly polished, dark-mode "Weekly Analytics Report" printable layout for a web app called Focus10010. The design should look like a premium PDF export or dashboard summary. Use a black/dark gray background with neon yellow (#FFEE00) and bright cyan accents. 
-
-**Header:** Display "FOCUS10010 Weekly Report", the date range (e.g., Jun 30 - Jul 6), the user's name, and generation date.
-**Section 1 - Executive Summary Grid:** Create a beautiful 4-card grid for top-level metrics: Total Hours (41.4h), Daily Average (5.9h), vs Last Week (+7% in green), and Peak Day (Sat - 10.7h).
-**Section 2 - Streak Insights:** Two elegant callout boxes showing Current Streak (7 Days) and 30-Day Consistency (93%).
-**Section 3 - Daily Breakdown Table:** A clean, modern table with 7 rows (one for each day of the week). Columns should be: Date, Day, Hours Logged, and Tags (e.g., "Coding: 4h, Reading: 2h"). Style the table rows with subtle alternating background colors and yellow borders.
-**Section 4 - Methodology:** A small, muted-text footer explaining that the day boundary is offset by -4 hours and a streak requires >= 30 mins. Ensure the layout is responsive but optimized for an A4 portrait aspect ratio.

@@ -96,7 +96,7 @@ export class FocusTimer {
         setInterval(() => this.checkDate(), 1000);
         
         // Setup cross-tab sync
-        this.channel = new BroadcastChannel('focus10010_sync');
+        this.channel = new BroadcastChannel('vibetimer_sync');
         this.channel.onmessage = (event) => {
             const { type, payload } = event.data;
             if (type === 'REQUEST_STATE') {

@@ -100,12 +100,12 @@ export function useTimer() {
         const { mode, isRunning, timeRemaining, timeElapsed } = timerState;
         
         if (mode === 'home' || (!isRunning && mode === 'stopwatch' && timeElapsed === 0)) {
-            document.title = 'Focus10010';
+            document.title = 'VibeTimer';
             return;
         }
         
         if (!isRunning) {
-            document.title = '⏸ Paused — Focus10010';
+            document.title = '⏸ Paused — VibeTimer';
             return;
         }
         
@@ -114,7 +114,7 @@ export function useTimer() {
         const m = Math.floor(totalSeconds / 60);
         const s = totalSeconds % 60;
         const pad = (n) => n.toString().padStart(2, '0');
-        document.title = `⏱ ${pad(m)}:${pad(s)} — Focus10010`;
+        document.title = `⏱ ${pad(m)}:${pad(s)} — VibeTimer`;
     }, [timerState]);
 
     // Keyboard shortcuts

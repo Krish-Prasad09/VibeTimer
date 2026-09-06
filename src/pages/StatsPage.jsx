@@ -318,7 +318,7 @@ export default function StatsPage() {
           <button onClick={() => navigate('/')} className="text-on-surface-variant hover:text-primary-fixed-dim transition-colors active:scale-95 duration-100 p-2">
             <span className="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
           </button>
-          <h1 className="font-s-headline-lg text-s-headline-lg-mobile text-primary-fixed uppercase tracking-tighter md:hidden">Focus10010</h1>
+          <h1 className="font-s-headline-lg text-s-headline-lg-mobile text-primary-fixed uppercase tracking-tighter md:hidden">VibeTimer</h1>
         </div>
         
         <nav className="hidden md:flex gap-8 font-s-headline-lg text-s-headline-lg">
@@ -343,7 +343,7 @@ export default function StatsPage() {
             <img className="w-full h-full object-cover" alt="System Avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDlllCMHlusCYczyRmhpvD2AJXe9YdFTe2JtlUdk_MmOhyQLpbm3JUnsdtL-T3RKyM-hiOwTYAri08H7CKxS_BwLe8nOzPMh6zjJ3J8Dfman1n4m4yJk7eMNUecS-4ATHsM0Lq5BbAP9ATO1FtafcPgzeCiX3cWSyHy8d2LjvFaJGDAswuTARetQFiPVgVQoPRGERYJNdrCBdasQD3aF3AqSyTIFlKs1CHQqHfbPisSqWrISZ1t4ZOrop3b0I4wAGgextJGqvOZjf6T" />
           </div>
           <div>
-            <div className="font-s-headline-lg text-s-headline-lg text-primary-fixed text-lg">Focus10010</div>
+            <div className="font-s-headline-lg text-s-headline-lg text-primary-fixed text-lg">VibeTimer</div>
             <div className="font-s-label-sm text-s-label-sm text-on-surface-variant">System Active</div>
           </div>
         </div>
