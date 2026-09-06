@@ -1,0 +1,102 @@
+
+        .stats-glass-panel {
+            background-color: rgba(26, 26, 26, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid #333333;
+        }
+        .stats-glass-panel:hover {
+            border-color: #FFEE00;
+        }
+        .text-glow {
+            text-shadow: 0 0 10px rgba(255, 238, 0, 0.3);
+        }
+        .box-glow {
+            box-shadow: 0 0 20px rgba(255, 238, 0, 0.2);
+        }
+        
+        /* Animated Background */
+        .ambient-bg {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: -1;
+            overflow: hidden;
+            background-color: #0A0A0A;
+        }
+        .blur-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.15;
+            animation: float 20s infinite ease-in-out;
+        }
+        .orb-yellow {
+            background: #FFEE00;
+            width: 40vw; height: 40vw;
+            top: -10vw; left: -10vw;
+        }
+        .orb-purple {
+            background: #9b59b6;
+            width: 50vw; height: 50vw;
+            bottom: -20vw; right: -10vw;
+            animation-delay: -10s;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(5vw, 5vw) scale(1.1); }
+            66% { transform: translate(-5vw, 10vw) scale(0.9); }
+        }
+
+        /* Chart Animations */
+        @keyframes growUp {
+            from { height: 0; opacity: 0; }
+            to { opacity: 1; }
+        }
+        .bar-grow {
+            animation: growUp 1s ease-out forwards;
+            transform-origin: bottom;
+        }
+        
+        /* Staggered Fade In */
+        .fade-in-stagger {
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 0.6s ease-out forwards;
+        }
+        @keyframes fadeInUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .delay-1 { animation-delay: 0.1s; }
+        .delay-2 { animation-delay: 0.2s; }
+        .delay-3 { animation-delay: 0.3s; }
+        .delay-4 { animation-delay: 0.4s; }
+        
+        
+        /* Firefox Support */
+        .custom-scrollbar {
+        scrollbar-width: thin;
+        /* First color is the thumb (yellow), second is the track (dark/transparent) */
+        scrollbar-color: #d8ca00 rgba(255, 255, 255, 0.05); 
+        }
+
+        /* Chrome, Edge, and Safari Support */
+        .custom-scrollbar::-webkit-scrollbar {
+        height: 8px; /* Height of horizontal scrollbar */
+        }
+
+        /* The track (background) of the scrollbar */
+        .custom-scrollbar::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05); /* A very faint, translucent dark track */
+        border-radius: 10px;
+        }
+
+        /* The draggable thumb */
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #d8ca00; /* Matching the yellow from your theme's shadow */
+        border-radius: 10px;
+        }
+
+        /* Hover state for the draggable thumb */
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #ffea00; /* Brighter yellow when hovering */
+        }
