@@ -7,6 +7,7 @@ export function useTimer() {
         const defaultState = {
             mode: 'stopwatch',
             isRunning: false,
+            wasAutoPaused: false,
             timeRemaining: 25 * 60 * 1000,
             timeElapsed: 0,
             dailyTotal: 0,
@@ -176,6 +177,8 @@ export function useTimer() {
     const setMode = (mode) => timerRef.current?.setMode(mode);
     const setTag = (tag) => timerRef.current?.setTag(tag);
     const setDuration = (seconds) => timerRef.current?.setDuration(seconds);
+    const adjustTime = (minutes) => timerRef.current?.adjustTime(minutes * 60 * 1000);
+    const dismissAutoPause = () => timerRef.current?.dismissAutoPause();
 
     // Format MS into MM:SS.d (tenths) or H:MM:SS.d
     const formatTime = (totalMs) => {
@@ -205,6 +208,8 @@ export function useTimer() {
         setMode,
         setTag,
         setDuration,
+        adjustTime,
+        dismissAutoPause,
         formatTime,
         syncFromDb,
         showShortcuts,

@@ -23,6 +23,7 @@ export class FocusTimer {
         this.tags = {}; // Record to store duration per tag
         this.currentTag = DEFAULT_TAG; // Default tag
         this.isRunning = false;
+        this.wasAutoPaused = false;
 
         this.currentDate = getLogicalDateStr();
 
@@ -31,6 +32,7 @@ export class FocusTimer {
             try {
                 const parsed = JSON.parse(savedState);
                 this.mode = parsed.mode || this.mode;
+                this.wasAutoPaused = !!parsed.wasAutoPaused;
                 
                 if (parsed.currentDate === this.currentDate) {
                     this.timeRemaining = parsed.timeRemaining !== undefined ? parsed.timeRemaining : this.timeRemaining;
@@ -48,22 +50,29 @@ export class FocusTimer {
                         this.timeElapsed = 0;
                     }
 
-                    // If it was running when closed, catch up
+                    // If it was running when closed, check for sleep gap
                     if (parsed.isRunning && parsed.lastTickTime) {
                         const now = Date.now();
                         const delta = now - parsed.lastTickTime;
                         
-                        if (this.mode === 'stopwatch') {
-                            this.timeElapsed += delta;
-                            this.dailyTotal += delta;
-                        } else if (this.mode === 'pomodoro' || this.mode === 'break') {
-                            this.timeRemaining -= delta;
-                            if (this.mode === 'pomodoro') {
+                        // If more than 2.5 seconds have passed, laptop was sleeping or tab was closed
+                        if (delta > 2500) {
+                            console.log(`[VibeTimer] Laptop was asleep/closed for ${(delta / 1000).toFixed(1)}s. Pausing timer.`);
+                            this.isRunning = false;
+                            this.wasAutoPaused = true;
+                        } else {
+                            if (this.mode === 'stopwatch') {
+                                this.timeElapsed += delta;
                                 this.dailyTotal += delta;
-                                this.tags[this.currentTag] = (this.tags[this.currentTag] || 0) + delta;
-                            }
-                            if (this.timeRemaining <= 0) {
-                                this.timeRemaining = 0;
+                            } else if (this.mode === 'pomodoro' || this.mode === 'break') {
+                                this.timeRemaining -= delta;
+                                if (this.mode === 'pomodoro') {
+                                    this.dailyTotal += delta;
+                                    this.tags[this.currentTag] = (this.tags[this.currentTag] || 0) + delta;
+                                }
+                                if (this.timeRemaining <= 0) {
+                                    this.timeRemaining = 0;
+                                }
                             }
                         }
                     }
@@ -73,6 +82,7 @@ export class FocusTimer {
                     this.laps = [];
                     this.tags = {};
                     this.timeElapsed = 0;
+                    this.wasAutoPaused = false;
                     if (this.mode === 'pomodoro') this.timeRemaining = 25 * 60 * 1000;
                     else if (this.mode === 'break') this.timeRemaining = 10 * 60 * 1000;
                 }
@@ -94,6 +104,22 @@ export class FocusTimer {
 
         // Periodically check for date rollover (4 AM IST)
         setInterval(() => this.checkDate(), 1000);
+
+        // Listen for visibility change to catch laptop wake-up immediately
+        if (typeof document !== 'undefined') {
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible' && this.isRunning && this.lastTickTime) {
+                    const delta = Date.now() - this.lastTickTime;
+                    if (delta > 2500) {
+                        console.log(`[VibeTimer] Wake-up detected (${(delta / 1000).toFixed(1)}s gap). Auto-pausing timer.`);
+                        this.pause();
+                        this.wasAutoPaused = true;
+                        this.saveState();
+                        this.onTick(this.getState());
+                    }
+                }
+            });
+        }
         
         // Setup cross-tab sync
         this.channel = new BroadcastChannel('vibetimer_sync');
@@ -127,6 +153,7 @@ export class FocusTimer {
                 tags: this.tags,
                 currentTag: this.currentTag,
                 isRunning: this.isRunning,
+                wasAutoPaused: this.wasAutoPaused,
                 currentDate: this.currentDate,
                 lastTickTime: this.lastTickTime
             }
@@ -143,6 +170,7 @@ export class FocusTimer {
         this.currentTag = payload.currentTag;
         this.currentDate = payload.currentDate;
         this.lastTickTime = payload.lastTickTime;
+        this.wasAutoPaused = payload.wasAutoPaused !== undefined ? payload.wasAutoPaused : this.wasAutoPaused;
         
         if (payload.isRunning) {
             this.isRunning = true;
@@ -164,6 +192,17 @@ export class FocusTimer {
             const now = Date.now();
             const delta = now - this.lastTickTime;
             this.lastTickTime = now;
+
+            // Laptop Sleep / Deep Freeze Detection:
+            // The interval is set to 30ms. If delta > 2500ms, the laptop was asleep or CPU froze.
+            if (delta > 2500) {
+                console.log(`[VibeTimer] Laptop sleep detected (gap: ${(delta / 1000).toFixed(1)}s). Auto-pausing timer.`);
+                this.pause();
+                this.wasAutoPaused = true;
+                this.saveState();
+                this.onTick(this.getState());
+                return;
+            }
 
             if (this.mode === 'stopwatch') {
                 this.timeElapsed += delta;
@@ -215,6 +254,7 @@ export class FocusTimer {
             this.laps = [];
             this.tags = {};
             this.timeElapsed = 0;
+            this.wasAutoPaused = false;
             this.currentDate = today;
             this.reset(); // This resets timeRemaining based on mode, pauses the timer, saves state, and calls onTick
         }
@@ -230,6 +270,7 @@ export class FocusTimer {
             tags: this.tags,
             currentTag: this.currentTag,
             isRunning: this.isRunning,
+            wasAutoPaused: this.wasAutoPaused,
             currentDate: this.currentDate,
             lastTickTime: this.lastTickTime || Date.now()
         }));
@@ -238,6 +279,7 @@ export class FocusTimer {
     start(broadcast = true) {
         if (this.isRunning) return;
         this.isRunning = true;
+        this.wasAutoPaused = false;
         this.lastTickTime = Date.now();
         this.saveState();
         this._startInterval();
@@ -252,6 +294,34 @@ export class FocusTimer {
         this.onTick(this.getState());
         
         if (broadcast) this.broadcastAction('PAUSE');
+    }
+
+    dismissAutoPause(broadcast = true) {
+        this.wasAutoPaused = false;
+        this.saveState();
+        this.onTick(this.getState());
+
+        if (broadcast) this.broadcastAction('DISMISS_AUTOPAUSE');
+    }
+
+    adjustTime(msDelta, broadcast = true) {
+        // Adjust dailyTotal (clamped to 0)
+        this.dailyTotal = Math.max(0, this.dailyTotal + msDelta);
+
+        // If stopwatch mode, adjust current session timeElapsed
+        if (this.mode === 'stopwatch') {
+            this.timeElapsed = Math.max(0, this.timeElapsed + msDelta);
+        }
+
+        // Adjust tag duration
+        if (this.tags[this.currentTag] !== undefined) {
+            this.tags[this.currentTag] = Math.max(0, (this.tags[this.currentTag] || 0) + msDelta);
+        }
+
+        this.saveState();
+        this.onTick(this.getState());
+
+        if (broadcast) this.broadcastAction('ADJUST_TIME');
     }
 
     lap(broadcast = true) {
@@ -353,6 +423,7 @@ export class FocusTimer {
         return {
             mode: this.mode,
             isRunning: this.isRunning,
+            wasAutoPaused: this.wasAutoPaused,
             timeRemaining: this.timeRemaining,
             timeElapsed: this.timeElapsed,
             dailyTotal: this.dailyTotal,

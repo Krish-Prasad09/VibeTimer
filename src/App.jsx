@@ -20,9 +20,12 @@ import { api } from '../convex/_generated/api';
 import { Routes, Route, Navigate, NavLink, useNavigate, useLocation } from 'react-router-dom';
 
 function App() {
-  const { mode, isRunning, timeRemaining, timeElapsed, dailyTotal, laps, tags, currentTag, start, pause, reset, lap, setMode, setTag, setDuration, formatTime, syncFromDb, showShortcuts, setShowShortcuts, autoChain, setAutoChain, focusMode, setFocusMode } = useTimer();
+  const { mode, isRunning, wasAutoPaused, timeRemaining, timeElapsed, dailyTotal, laps, tags, currentTag, start, pause, reset, lap, setMode, setTag, setDuration, adjustTime, dismissAutoPause, formatTime, syncFromDb, showShortcuts, setShowShortcuts, autoChain, setAutoChain, focusMode, setFocusMode } = useTimer();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  const [showAdjustTime, setShowAdjustTime] = useState(false);
+  const [adjustCustomMinutes, setAdjustCustomMinutes] = useState("");
 
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customMinutes, setCustomMinutes] = useState("");
@@ -271,8 +274,36 @@ function App() {
     }
   };
 
+  const handleAdjustMinutes = (mins) => {
+    adjustTime(mins);
+    if (user) {
+      const today = getLogicalDateStr();
+      const updatedTotal = Math.max(0, dailyTotal + mins * 60 * 1000);
+      const updatedTags = { ...tags };
+      if (updatedTags[currentTag] !== undefined) {
+        updatedTags[currentTag] = Math.max(0, (updatedTags[currentTag] || 0) + mins * 60 * 1000);
+      }
+      syncStats({
+        date: today,
+        totalMs: updatedTotal,
+        laps,
+        tags: updatedTags
+      }).catch(err => console.error("Failed to sync adjusted stats:", err));
+    }
+  };
+
+  const handleCustomAdjustSubmit = (e, isDeduct = true) => {
+    e.preventDefault();
+    const mins = parseInt(adjustCustomMinutes, 10);
+    if (!isNaN(mins) && mins > 0) {
+      handleAdjustMinutes(isDeduct ? -mins : mins);
+      setAdjustCustomMinutes("");
+      setShowAdjustTime(false);
+    }
+  };
+
   const timerWidgetUi = (
-    <div className="flex flex-col items-center mt-stack-md glass-panel p-glass-padding rounded-lg">
+    <div className="flex flex-col items-center mt-stack-md glass-panel p-glass-padding rounded-lg max-w-md w-full">
       
       {(mode === 'pomodoro' || mode === 'break') && (
         <div className="flex gap-2 mb-6 flex-wrap justify-center">
@@ -320,9 +351,69 @@ function App() {
         )}
       </div>
       
-      <p className="mt-stack-sm font-label-caps text-label-caps text-primary/60">
-        Total Daily Focus Time: {formatTime(dailyTotal)}
-      </p>
+      <div className="mt-stack-sm flex items-center gap-2 flex-wrap justify-center">
+        <p className="font-label-caps text-label-caps text-primary/60">
+          Total Daily Focus Time: {formatTime(dailyTotal)}
+        </p>
+        <button 
+          onClick={() => setShowAdjustTime(!showAdjustTime)} 
+          className="text-primary/70 hover:text-primary transition-colors text-xs flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-white/15 hover:bg-white/10 active:scale-95"
+          title="Adjust or reduce focus time"
+        >
+          <span className="material-symbols-outlined text-[13px]">tune</span>
+          <span>Adjust</span>
+        </button>
+      </div>
+
+      {showAdjustTime && (
+        <div className="mt-3 p-4 rounded-xl bg-black/70 backdrop-blur-md border border-white/20 shadow-2xl animate-fade-in flex flex-col gap-2.5 w-full text-left">
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-sm text-yellow-300">history</span>
+              Adjust Focus Time
+            </span>
+            <button onClick={() => setShowAdjustTime(false)} className="text-on-surface-variant hover:text-primary p-0.5 rounded transition-colors">
+              <span className="material-symbols-outlined text-sm">close</span>
+            </button>
+          </div>
+          <p className="text-[11px] text-on-surface-variant">Deduct study time if you were away or forgot to turn off the timer:</p>
+          <div className="grid grid-cols-4 gap-1.5">
+            <button onClick={() => handleAdjustMinutes(-5)} className="px-2 py-1.5 bg-white/10 hover:bg-red-500/30 hover:border-red-500/50 border border-white/10 rounded text-xs text-primary font-mono transition-colors">−5m</button>
+            <button onClick={() => handleAdjustMinutes(-10)} className="px-2 py-1.5 bg-white/10 hover:bg-red-500/30 hover:border-red-500/50 border border-white/10 rounded text-xs text-primary font-mono transition-colors">−10m</button>
+            <button onClick={() => handleAdjustMinutes(-15)} className="px-2 py-1.5 bg-white/10 hover:bg-red-500/30 hover:border-red-500/50 border border-white/10 rounded text-xs text-primary font-mono transition-colors">−15m</button>
+            <button onClick={() => handleAdjustMinutes(-30)} className="px-2 py-1.5 bg-white/10 hover:bg-red-500/30 hover:border-red-500/50 border border-white/10 rounded text-xs text-primary font-mono transition-colors">−30m</button>
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
+            <button onClick={() => handleAdjustMinutes(-60)} className="px-2 py-1.5 bg-white/10 hover:bg-red-500/30 hover:border-red-500/50 border border-white/10 rounded text-xs text-primary font-mono transition-colors">−1 hour</button>
+            <button onClick={() => handleAdjustMinutes(5)} className="px-2 py-1.5 bg-white/10 hover:bg-green-500/30 hover:border-green-500/50 border border-white/10 rounded text-xs text-primary font-mono transition-colors">+5m</button>
+            <button onClick={() => handleAdjustMinutes(15)} className="px-2 py-1.5 bg-white/10 hover:bg-green-500/30 hover:border-green-500/50 border border-white/10 rounded text-xs text-primary font-mono transition-colors">+15m</button>
+          </div>
+          <div className="flex gap-2 pt-2 border-t border-white/10 items-center">
+            <input 
+              type="number"
+              min="1"
+              value={adjustCustomMinutes}
+              onChange={(e) => setAdjustCustomMinutes(e.target.value)}
+              placeholder="Mins"
+              className="bg-black/40 border border-white/20 rounded px-2.5 py-1 text-xs text-primary w-20 text-center focus:outline-none"
+            />
+            <button 
+              type="button" 
+              onClick={(e) => handleCustomAdjustSubmit(e, true)}
+              className="flex-1 px-2.5 py-1 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-200 text-xs rounded font-medium transition-colors"
+            >
+              − Deduct
+            </button>
+            <button 
+              type="button" 
+              onClick={(e) => handleCustomAdjustSubmit(e, false)}
+              className="flex-1 px-2.5 py-1 bg-green-500/20 hover:bg-green-500/30 border border-green-500/40 text-green-200 text-xs rounded font-medium transition-colors"
+            >
+              + Add
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -367,6 +458,34 @@ function App() {
       )}
 
       <main className="flex-grow flex flex-col items-center justify-center z-10 text-center relative w-full h-full transition-opacity duration-300 px-4">
+        {wasAutoPaused && (
+          <div className="mb-4 glass-panel bg-amber-500/15 border border-amber-400/40 text-amber-200 px-4 py-2.5 rounded-full flex items-center gap-3 shadow-2xl animate-fade-in text-xs md:text-sm max-w-lg mx-auto backdrop-blur-md">
+            <span className="material-symbols-outlined text-amber-300 text-lg">bedtime</span>
+            <span className="text-on-surface font-medium">Laptop sleep detected — timer automatically paused.</span>
+            <div className="flex items-center gap-1.5 ml-auto shrink-0">
+              <button 
+                onClick={() => { dismissAutoPause(); start(); }} 
+                className="px-3 py-1 bg-primary/20 hover:bg-primary/30 text-primary font-semibold rounded-full text-xs transition-colors"
+              >
+                Resume
+              </button>
+              <button 
+                onClick={() => { setShowAdjustTime(true); dismissAutoPause(); }} 
+                className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white font-medium rounded-full text-xs transition-colors"
+              >
+                Adjust
+              </button>
+              <button 
+                onClick={dismissAutoPause} 
+                className="p-1 text-on-surface-variant hover:text-primary transition-colors" 
+                title="Dismiss"
+              >
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         <h1 className="font-display-clock text-display-clock-mobile md:text-display-clock drop-shadow-2xl text-primary font-bold tracking-tighter tabular-nums" id="main-clock">
           {getDisplayTime()}
         </h1>
