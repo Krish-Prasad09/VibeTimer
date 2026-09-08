@@ -2,29 +2,54 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { getLogicalDateStr } from '../logic/Timer';
 
 export default function StatsWidget({ onClose, user }) {
   const fetchedData = useQuery(api.stats.getStats, user ? undefined : "skip");
   
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState('heatmap'); // 'heatmap' or 'graph'
 
-  useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      return;
+  const effectiveData = useMemo(() => {
+    if (fetchedData && Array.isArray(fetchedData) && fetchedData.length > 0) {
+      return fetchedData;
     }
-    if (fetchedData !== undefined) {
-      setLoading(false);
+
+    const localEntries = [];
+    const todayStr = getLogicalDateStr();
+
+    try {
+      const savedTimerState = localStorage.getItem('focusTimerState');
+      if (savedTimerState) {
+        const parsed = JSON.parse(savedTimerState);
+        const dateStr = parsed.currentDate || todayStr;
+        localEntries.push({
+          date: dateStr,
+          totalMs: parsed.dailyTotal || 0,
+          tags: parsed.tags || {},
+          laps: parsed.laps || []
+        });
+      }
+    } catch (e) {
+      console.warn("Failed to parse local timer state", e);
     }
-  }, [fetchedData, user]);
+
+    if (localEntries.length === 0) {
+      localEntries.push({
+        date: todayStr,
+        totalMs: 0,
+        tags: {},
+        laps: []
+      });
+    }
+
+    return localEntries;
+  }, [fetchedData]);
 
   const stats = useMemo(() => {
-    if (!fetchedData) return null;
-
     const dataMap = {};
     const tagSum = {};
-    fetchedData.forEach(d => {
+    effectiveData.forEach(d => {
       dataMap[d.date] = d.totalMs;
       if (d.tags) {
         for (const [tag, duration] of Object.entries(d.tags)) {

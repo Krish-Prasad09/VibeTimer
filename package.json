@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npx convex deploy --yes && vite build",
+    "build": "node -e \"if (process.env.CONVEX_DEPLOY_KEY || process.env.CONVEX_DEPLOYMENT) { const { execSync } = require('child_process'); execSync('npx convex deploy --yes', { stdio: 'inherit' }); }\" && vite build",
+    "convex:deploy": "npx convex deploy --yes",
     "lint": "eslint .",
     "preview": "vite preview"
   },

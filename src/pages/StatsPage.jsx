@@ -1,36 +1,72 @@
-import { useUser } from '@clerk/clerk-react';
+import { useUser, SignInButton } from '@clerk/clerk-react';
 import { useQuery, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import './StatsPage.css';
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { generateFocusReport } from '../logic/generateFocusReport';
 import { TAG_COLORS } from '../logic/tags';
+import { getLogicalDateStr } from '../logic/Timer';
 
 export default function StatsPage() {
   const navigate = useNavigate();
   const heatmapScrollRef = useRef(null); 
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
   const fetchedData = useQuery(api.stats.getStats, user ? undefined : "skip");
+
+  // Fallback to local timer data if user is not signed in or fetchedData is unavailable
+  const effectiveData = useMemo(() => {
+    if (fetchedData && Array.isArray(fetchedData) && fetchedData.length > 0) {
+      return fetchedData;
+    }
+
+    const localEntries = [];
+    const todayStr = getLogicalDateStr();
+
+    try {
+      const savedTimerState = localStorage.getItem('focusTimerState');
+      if (savedTimerState) {
+        const parsed = JSON.parse(savedTimerState);
+        const dateStr = parsed.currentDate || todayStr;
+        localEntries.push({
+          date: dateStr,
+          totalMs: parsed.dailyTotal || 0,
+          tags: parsed.tags || {},
+          laps: parsed.laps || []
+        });
+      }
+    } catch (e) {
+      console.warn("Failed to parse local timer state", e);
+    }
+
+    if (localEntries.length === 0) {
+      localEntries.push({
+        date: todayStr,
+        totalMs: 0,
+        tags: {},
+        laps: []
+      });
+    }
+
+    return localEntries;
+  }, [fetchedData]);
 
   const [comparePeriod, setComparePeriod] = useState('weekly');
   const [compareOffset, setCompareOffset] = useState(1);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
-  const [aiSuggestion, setAiSuggestion] = useState(null);
+  const [aiSuggestions, setAiSuggestions] = useState({});
   const [suggestionLoading, setSuggestionLoading] = useState(false);
   const generateSuggestion = useAction(api.suggestions.generateSuggestion);
 
   const handleExport = (period) => {
-    generateFocusReport(period, fetchedData, user?.fullName || user?.firstName || 'User');
+    generateFocusReport(period, effectiveData, user?.fullName || user?.firstName || 'User');
     setIsExportMenuOpen(false);
   };
 
   const stats = useMemo(() => {
-    if (!fetchedData) return null;
-
     const dataMap = {};
     const tagSum = {};
-    fetchedData.forEach(d => {
+    effectiveData.forEach(d => {
       dataMap[d.date] = d.totalMs;
       if (d.tags) {
         for (const [tag, duration] of Object.entries(d.tags)) {
@@ -168,7 +204,7 @@ export default function StatsPage() {
       const d = new Date(dRef);
       d.setDate(d.getDate() - i);
       const dateStr = d.toISOString().split('T')[0];
-      const dayData = fetchedData.find(fd => fd.date === dateStr);
+      const dayData = effectiveData.find(fd => fd.date === dateStr);
       if (dayData && dayData.tags) {
         for (const [tag, duration] of Object.entries(dayData.tags)) {
           periodTagSum[tag] = (periodTagSum[tag] || 0) + duration;
@@ -228,7 +264,7 @@ export default function StatsPage() {
     const weeklyProgressPercent = Math.min(100, Math.round((actualThisWeekHours / 72) * 100));
 
     return { thisWeekHours, lastWeekHours, dailyAverage, percentChange, totalAllTimeHours, bestDayStr, bestDayHours: (bestDayMs / 3600000).toFixed(1), heatmapDays, barChartData, maxChartMs, topTags, currentStreak, longestStreak, consistency, actualThisWeekHours, weeklyProgressPercent };
-  }, [fetchedData, comparePeriod, compareOffset]);
+  }, [effectiveData, comparePeriod, compareOffset]);
 
   const getHeatmapClass = (ms) => {
     if (ms >= 10800000) return "bg-primary-fixed box-glow";
@@ -246,11 +282,7 @@ export default function StatsPage() {
 
   // Fetch AI suggestion when stats are ready, using localStorage to cache it per day
   useEffect(() => {
-    setAiSuggestion(null);
-  }, [comparePeriod]);
-
-  useEffect(() => {
-    if (!stats || !fetchedData || aiSuggestion || suggestionLoading) return;
+    if (!user || !stats || aiSuggestions[comparePeriod] || suggestionLoading) return;
 
     const today = new Date().toISOString().split('T')[0];
     const cacheKey = `aiSuggestionCache_${comparePeriod}`;
@@ -260,10 +292,10 @@ export default function StatsPage() {
       try {
         const parsed = JSON.parse(cached);
         if (parsed.date === today) {
-          setAiSuggestion(parsed.suggestion);
+          setAiSuggestions(prev => ({ ...prev, [comparePeriod]: parsed.suggestion }));
           return;
         }
-      } catch (e) {
+      } catch {
         // Ignore parsing errors and fetch new
       }
     }
@@ -283,21 +315,31 @@ export default function StatsPage() {
 
     generateSuggestion({ statsSummary: summary })
       .then(result => {
-        setAiSuggestion(result.suggestion);
+        setAiSuggestions(prev => ({ ...prev, [comparePeriod]: result.suggestion }));
         localStorage.setItem(cacheKey, JSON.stringify({
           date: today,
           suggestion: result.suggestion
         }));
       })
-      .catch(() => setAiSuggestion('Keep pushing! Consistency beats intensity every time.'))
+      .catch(() => {
+        setAiSuggestions(prev => ({ ...prev, [comparePeriod]: 'Keep pushing! Consistency beats intensity every time.' }));
+      })
       .finally(() => setSuggestionLoading(false));
-  }, [stats, fetchedData, comparePeriod]);
+  }, [stats, user, comparePeriod, aiSuggestions, suggestionLoading, generateSuggestion]);
 
-  if (!user || !stats) {
-    return <div className="fixed inset-0 bg-background text-primary-fixed flex flex-col items-center justify-center z-[100]">
-      <div className="w-10 h-10 border-4 border-primary-fixed border-t-transparent rounded-full animate-spin mb-4"></div>
-      Loading Analytics...
-    </div>;
+  if (!isLoaded && !stats) {
+    return (
+      <div className="fixed inset-0 bg-background text-primary flex flex-col items-center justify-center z-[100]">
+        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-on-surface-variant text-sm">Loading Analytics...</p>
+        <button 
+          onClick={() => navigate('/')}
+          className="mt-4 px-4 py-2 rounded-full border border-white/20 text-xs text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
+        >
+          Back to Timer
+        </button>
+      </div>
+    );
   }
 
 
@@ -363,31 +405,54 @@ export default function StatsPage() {
       <main className="pt-5 px-6 md:px-8 w-full max-w-[1100px] mx-auto flex flex-col gap-5 pb-8">
 
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 fade-in-stagger delay-1 relative z-50">
-          <div>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => navigate('/')} 
+              className="p-2.5 rounded-full border border-white/10 hover:border-primary/50 text-on-surface-variant hover:text-primary transition-all flex items-center justify-center bg-surface-container-high/60 cursor-pointer shadow-md active:scale-95"
+              title="Back to Timer"
+            >
+              <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+            </button>
             <h2 className="font-s-headline-lg text-s-headline-lg-mobile md:text-s-headline-lg text-primary text-glow">Analytics Engine</h2>
           </div>
           <div className="flex items-center gap-4 relative">
             <div className="flex bg-surface-container-high rounded-full p-1 border border-outline-variant font-s-label-sm text-s-label-sm">
-              <button onClick={() => { setComparePeriod('weekly'); setCompareOffset(1); }} className={`px-5 py-2 rounded-full transition-all ${comparePeriod === 'weekly' ? 'bg-primary-fixed text-on-primary-fixed font-bold shadow-md' : 'text-on-surface-variant hover:text-primary-fixed'}`}>Weekly</button>
-              <button onClick={() => { setComparePeriod('monthly'); setCompareOffset(1); }} className={`px-5 py-2 rounded-full transition-all ${comparePeriod === 'monthly' ? 'bg-primary-fixed text-on-primary-fixed font-bold shadow-md' : 'text-on-surface-variant hover:text-primary-fixed'}`}>Monthly</button>
-              <button onClick={() => { setComparePeriod('allTime'); setCompareOffset(1); }} className={`px-5 py-2 rounded-full transition-all ${comparePeriod === 'allTime' ? 'bg-primary-fixed text-on-primary-fixed font-bold shadow-md' : 'text-on-surface-variant hover:text-primary-fixed'}`}>All Time</button>
+              <button onClick={() => { setComparePeriod('weekly'); setCompareOffset(1); }} className={`px-5 py-2 rounded-full transition-all cursor-pointer ${comparePeriod === 'weekly' ? 'bg-primary-fixed text-on-primary-fixed font-bold shadow-md' : 'text-on-surface-variant hover:text-primary-fixed'}`}>Weekly</button>
+              <button onClick={() => { setComparePeriod('monthly'); setCompareOffset(1); }} className={`px-5 py-2 rounded-full transition-all cursor-pointer ${comparePeriod === 'monthly' ? 'bg-primary-fixed text-on-primary-fixed font-bold shadow-md' : 'text-on-surface-variant hover:text-primary-fixed'}`}>Monthly</button>
+              <button onClick={() => { setComparePeriod('allTime'); setCompareOffset(1); }} className={`px-5 py-2 rounded-full transition-all cursor-pointer ${comparePeriod === 'allTime' ? 'bg-primary-fixed text-on-primary-fixed font-bold shadow-md' : 'text-on-surface-variant hover:text-primary-fixed'}`}>All Time</button>
             </div>
             
             <div className="relative">
-              <button onClick={() => setIsExportMenuOpen(!isExportMenuOpen)} className="flex items-center gap-2 bg-surface-container-high hover:bg-surface-container-highest border border-outline-variant text-on-surface px-4 py-2 rounded-full transition-all font-s-label-sm text-sm">
+              <button onClick={() => setIsExportMenuOpen(!isExportMenuOpen)} className="flex items-center gap-2 bg-surface-container-high hover:bg-surface-container-highest border border-outline-variant text-on-surface px-4 py-2 rounded-full transition-all font-s-label-sm text-sm cursor-pointer">
                 <span className="material-symbols-outlined text-[18px]">download</span>
                 Export
               </button>
               {isExportMenuOpen && (
                 <div className="absolute top-full right-0 mt-2 w-40 bg-surface-container-highest border border-outline-variant rounded-xl shadow-xl overflow-hidden z-[200] flex flex-col font-s-label-sm text-sm">
-                  <button onClick={() => handleExport('weekly')} className="px-4 py-3 text-left hover:bg-white/5 text-on-surface transition-colors">Current Week</button>
-                  <button onClick={() => handleExport('monthly')} className="px-4 py-3 text-left hover:bg-white/5 text-on-surface transition-colors border-t border-outline-variant/30">Current Month</button>
-                  <button onClick={() => handleExport('allTime')} className="px-4 py-3 text-left hover:bg-white/5 text-on-surface transition-colors border-t border-outline-variant/30">All Time</button>
+                  <button onClick={() => handleExport('weekly')} className="px-4 py-3 text-left hover:bg-white/5 text-on-surface transition-colors cursor-pointer">Current Week</button>
+                  <button onClick={() => handleExport('monthly')} className="px-4 py-3 text-left hover:bg-white/5 text-on-surface transition-colors border-t border-outline-variant/30 cursor-pointer">Current Month</button>
+                  <button onClick={() => handleExport('allTime')} className="px-4 py-3 text-left hover:bg-white/5 text-on-surface transition-colors border-t border-outline-variant/30 cursor-pointer">All Time</button>
                 </div>
               )}
             </div>
           </div>
         </div>
+
+        {!user && (
+          <div className="glass-panel rounded-2xl p-4 border border-primary/30 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm fade-in-stagger delay-1 bg-surface-container-high/30">
+            <div className="flex items-center gap-3">
+              <span className="text-xl">📊</span>
+              <span className="text-on-surface-variant text-xs sm:text-sm">
+                Viewing <strong>Local Session Analytics</strong>. Sign in with Clerk to back up daily focus time and sync across devices.
+              </span>
+            </div>
+            <SignInButton mode="modal">
+              <button className="px-4 py-1.5 rounded-full bg-primary text-black font-semibold text-xs hover:opacity-90 transition-opacity whitespace-nowrap cursor-pointer">
+                Sign In / Sync
+              </button>
+            </SignInButton>
+          </div>
+        )}
 
         {/* TOP STATS GRID */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
@@ -558,7 +623,7 @@ export default function StatsPage() {
                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary-fixed/10 border border-primary-fixed/30 text-primary-fixed/70 font-normal">Gemini</span>
                 </div>
                 <p className="font-s-body-md text-sm text-on-surface-variant leading-relaxed">
-                  {suggestionLoading ? 'Analyzing your focus patterns...' : (aiSuggestion || 'Keep pushing! Consistency beats intensity every time.')}
+                  {suggestionLoading ? 'Analyzing your focus patterns...' : (aiSuggestions[comparePeriod] || 'Consistency beats intensity every time. Keep focusing and build up your streak!')}
                 </p>
               </div>
             </div>
@@ -585,7 +650,7 @@ export default function StatsPage() {
           {/* 3. Added a dedicated scrollable wrapper just for the grid */}
           <div className="w-full overflow-x-auto pb-4 custom-scrollbar" ref={heatmapScrollRef}>
             <div className="grid grid-rows-7 gap-2 min-w-[700px] grid-flow-col" id="heatmap-container" >
-              {stats.heatmapDays.map((day, index) => (
+              {stats.heatmapDays.map((day) => (
                 <div 
                   key={day.date} 
                   className={`w-5 h-5 rounded-sm transition-colors duration-300 ${getHeatmapClass(day.totalMs)} group relative cursor-pointer`}

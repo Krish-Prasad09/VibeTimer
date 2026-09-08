@@ -7,11 +7,7 @@ import { ClerkProvider, useAuth } from '@clerk/clerk-react'
 import { ConvexProviderWithClerk } from 'convex/react-clerk'
 import { ConvexReactClient } from 'convex/react'
 
-const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
-
-if (!PUBLISHABLE_KEY) {
-  throw new Error("Missing Publishable Key")
-}
+const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || "pk_test_cHJvbXB0LXRhcGlyLTM4LmNsZXJrLmFjY291bnRzLmRldiQ"
 
 const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || "https://placeholder-convex-url.convex.cloud"
 const convex = new ConvexReactClient(CONVEX_URL)
