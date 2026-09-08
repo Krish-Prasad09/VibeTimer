@@ -4,7 +4,6 @@ import { useTimer } from './hooks/useTimer';
 import { getLogicalDateStr } from './logic/Timer';
 import TodoWidget from './components/TodoWidget';
 import NotesWidget from './components/NotesWidget';
-import SpotifyWidget from './components/SpotifyWidget';
 import StatsWidget from './components/StatsWidget';
 import AmbientSoundWidget from './components/AmbientSoundWidget';
 import DailyGoalRing from './components/DailyGoalRing';
@@ -223,13 +222,6 @@ function App() {
     };
     document.addEventListener('fullscreenchange', onFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
-  }, []);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.has('code') || params.has('error')) {
-      setActiveWidget('music');
-    }
   }, []);
 
   const toggleFullscreen = () => {
@@ -517,7 +509,6 @@ function App() {
           <div className="relative">
             {activeWidget === 'tasks' && <TodoWidget onClose={() => setActiveWidget(null)} />}
             {activeWidget === 'notes' && <NotesWidget onClose={() => setActiveWidget(null)} />}
-            <SpotifyWidget isOpen={activeWidget === 'music'} onClose={() => setActiveWidget(null)} />
             <AmbientSoundWidget isOpen={activeWidget === 'ambient'} onClose={() => setActiveWidget(null)} />
           </div>
 
@@ -530,16 +521,13 @@ function App() {
               
               {/* Expanded Content */}
               <div className="flex gap-1 md:gap-2 pr-3 md:pr-4 py-1 items-center opacity-0 group-hover:opacity-100 transition-opacity duration-500 min-w-max">
-                <button onClick={() => setActiveWidget(activeWidget === 'tasks' ? null : 'tasks')} className={`text-on-surface-variant hover:bg-white/10 transition-all p-2 rounded-full flex flex-col items-center group/btn ${activeWidget === 'tasks' ? 'bg-white/20 text-primary' : ''}`}>
+                <button onClick={() => setActiveWidget(activeWidget === 'tasks' ? null : 'tasks')} className={`text-on-surface-variant hover:bg-white/10 transition-all p-2 rounded-full flex flex-col items-center group/btn ${activeWidget === 'tasks' ? 'bg-white/20 text-primary' : ''}`} title="Tasks">
                   <span className="material-symbols-outlined group-hover/btn:text-primary transition-colors text-[20px]">check_circle</span>
                 </button>
-                <button onClick={() => setActiveWidget(activeWidget === 'music' ? null : 'music')} className={`text-on-surface-variant hover:bg-white/10 transition-all p-2 rounded-full flex flex-col items-center group/btn ${activeWidget === 'music' ? 'bg-white/20 text-primary' : ''}`}>
-                  <span className="material-symbols-outlined group-hover/btn:text-primary transition-colors text-[20px]">music_note</span>
-                </button>
-                <button onClick={() => setActiveWidget(activeWidget === 'notes' ? null : 'notes')} className={`text-on-surface-variant hover:bg-white/10 transition-all p-2 rounded-full flex flex-col items-center group/btn ${activeWidget === 'notes' ? 'bg-white/20 text-primary' : ''}`}>
+                <button onClick={() => setActiveWidget(activeWidget === 'notes' ? null : 'notes')} className={`text-on-surface-variant hover:bg-white/10 transition-all p-2 rounded-full flex flex-col items-center group/btn ${activeWidget === 'notes' ? 'bg-white/20 text-primary' : ''}`} title="Notes">
                   <span className="material-symbols-outlined group-hover/btn:text-primary transition-colors text-[20px]">edit_note</span>
                 </button>
-                <button onClick={() => setActiveWidget(activeWidget === 'ambient' ? null : 'ambient')} className={`text-on-surface-variant hover:bg-white/10 transition-all p-2 rounded-full flex flex-col items-center group/btn ${activeWidget === 'ambient' ? 'bg-white/20 text-primary' : ''}`}>
+                <button onClick={() => setActiveWidget(activeWidget === 'ambient' ? null : 'ambient')} className={`text-on-surface-variant hover:bg-white/10 transition-all p-2 rounded-full flex flex-col items-center group/btn ${activeWidget === 'ambient' ? 'bg-white/20 text-primary' : ''}`} title="Ambient Sounds">
                   <span className="material-symbols-outlined group-hover/btn:text-primary transition-colors text-[20px]">spa</span>
                 </button>
                 

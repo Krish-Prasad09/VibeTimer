@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.61.8",
-    "@spotify/web-api-ts-sdk": "^1.2.0",
     "convex": "^1.39.1",
     "firebase": "^12.13.0",
     "jspdf": "^4.2.1",

@@ -21,7 +21,7 @@
 
 ## 4. Productivity Widgets (Bottom Left Tray)
 * **Todo / Tasks Widget**: Track your session's goals.
-* **Music / Spotify Widget**: Control your background productivity tracks.
+* **Ambient Sounds Widget**: Immerse in soothing sounds (Rain, Waves, Fire, White Noise).
 * **Notes Widget**: Jot down quick thoughts without leaving your focus page.
 
 ## 5. Security & Account Management
