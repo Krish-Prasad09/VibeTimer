@@ -5,6 +5,7 @@ A minimalist, aesthetic focus timer and productivity dashboard designed to keep 
 ## ✨ Features
 
 - ⏳ **Customizable Focus Timer**: Pomodoro, short breaks, long breaks, and stopwatch mode.
+- 📌 **Floating Mini Timer (PiP)**: Keep a live floating mini timer above all apps with native controls (press `P`).
 - 🎵 **Lo-Fi & Ambient Soundscapes**: Built-in soothing background sounds and nature tracks.
 - 📊 **Analytics & Heatmaps**: Track daily focus sessions, streaks, and generate downloadable reports.
 - 📝 **Quick Notes & Tasks**: Built-in scratchpad and todo checklist.

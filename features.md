@@ -16,6 +16,7 @@
 ## 3. Immersive User Interface
 * **Glassmorphic Aesthetics**: Modern design utilizing frosted glass panels, translucent dark backgrounds, and subtle glowing borders.
 * **True Fullscreen Mode**: Expand the web app to fill the entire monitor, hiding the browser address bar and tabs while retaining full access to all your widgets and buttons. The fullscreen icon dynamically toggles to reflect the state.
+* **Floating Mini Timer (Picture-in-Picture)**: Pop out an always-on-top floating mini timer with live Start/Pause, Mode switching, and Lap/Reset controls that float over any window or desktop app (press `P` or click the PiP button).
 * **Mobile Responsiveness**: UI adapts beautifully to narrow phone screens. It leverages Dynamic Viewport Heights (`100dvh`) to prevent address bars from cutting off the screen, and neatly wraps and scales padding to avoid widget overlapping.
 * **Custom Dynamic Font Scaling**: The giant timer uses huge display typography on desktop while scaling cleanly on mobile devices.
 

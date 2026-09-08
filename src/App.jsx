@@ -9,6 +9,7 @@ import AmbientSoundWidget from './components/AmbientSoundWidget';
 import DailyGoalRing from './components/DailyGoalRing';
 import StreakBadge from './components/StreakBadge';
 import BackgroundLayer from './components/BackgroundLayer';
+import FloatingPipTimer from './components/FloatingPipTimer';
 import StatsPage from './pages/StatsPage';
 import './index.css';
 
@@ -332,15 +333,23 @@ function App() {
       )}
 
       <div className="flex items-center gap-stack-md">
-        <button onClick={isRunning ? pause : start} className="p-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors w-12 h-12 flex items-center justify-center">
+        <button onClick={isRunning ? pause : start} className="p-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors w-12 h-12 flex items-center justify-center cursor-pointer active:scale-95" title={isRunning ? 'Pause' : 'Start'}>
           <span className="material-symbols-outlined text-primary">{isRunning ? 'pause' : 'play_arrow'}</span>
         </button>
         {mode === 'stopwatch' && (
-          <button onClick={lap} className="px-6 py-2 rounded-full border border-white/30 text-primary hover:bg-white/10 transition-colors">Lap</button>
+          <button onClick={lap} className="px-6 py-2 rounded-full border border-white/30 text-primary hover:bg-white/10 transition-colors cursor-pointer active:scale-95">Lap</button>
         )}
         {(mode === 'pomodoro' || mode === 'break') && (
-          <button onClick={reset} className="px-6 py-2 rounded-full border border-white/30 text-primary hover:bg-white/10 transition-colors">Reset</button>
+          <button onClick={reset} className="px-6 py-2 rounded-full border border-white/30 text-primary hover:bg-white/10 transition-colors cursor-pointer active:scale-95">Reset</button>
         )}
+        <button 
+          onClick={() => window.dispatchEvent(new CustomEvent('toggle-pip'))}
+          className="p-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors w-12 h-12 flex items-center justify-center cursor-pointer active:scale-95 text-primary"
+          title="Floating Mini Timer (P)"
+          aria-label="Floating Mini Timer"
+        >
+          <span className="material-symbols-outlined text-[20px]">picture_in_picture_alt</span>
+        </button>
       </div>
       
       <div className="mt-stack-sm flex items-center gap-2 flex-wrap justify-center">
@@ -484,13 +493,26 @@ function App() {
         
         <Routes>
           <Route path="/" element={
-            <div className="mt-stack-md flex flex-col items-center gap-3 animate-fade-in">
+            <div className="mt-stack-md flex flex-col items-center gap-4 animate-fade-in">
               <p className="font-h2 text-h2 text-primary font-medium tracking-wide">
                 {getGreeting()}{user?.firstName ? `, ${user.firstName}` : ''}
               </p>
-              <p className="font-body-lg text-body-lg text-primary/60 font-light tracking-wide italic max-w-md transition-opacity duration-700" style={{opacity: quoteVisible ? 1 : 0}}>
+              <p className="font-body-lg text-body-lg text-primary/60 font-light tracking-wide italic max-w-md transition-opacity duration-700 text-center" style={{opacity: quoteVisible ? 1 : 0}}>
                 "{currentQuote}"
               </p>
+              <div className="flex items-center gap-3 mt-1">
+                <button onClick={() => navigate('/timer')} className="px-5 py-2 rounded-full bg-primary text-black font-semibold text-sm hover:opacity-90 transition-all active:scale-95 shadow-lg flex items-center gap-1.5 cursor-pointer">
+                  <span className="material-symbols-outlined text-[18px]">play_arrow</span>
+                  <span>Start Focus</span>
+                </button>
+                <button onClick={() => navigate('/stopwatch')} className="px-5 py-2 rounded-full bg-white/10 text-primary font-medium text-sm hover:bg-white/20 transition-all active:scale-95 border border-white/20 flex items-center gap-1.5 cursor-pointer">
+                  <span className="material-symbols-outlined text-[18px]">timer</span>
+                  <span>Stopwatch</span>
+                </button>
+                <button onClick={() => window.dispatchEvent(new CustomEvent('toggle-pip'))} className="p-2 rounded-full bg-white/10 text-primary hover:bg-white/20 transition-all active:scale-95 border border-white/20 flex items-center justify-center cursor-pointer" title="Floating Mini Timer (P)">
+                  <span className="material-symbols-outlined text-[18px]">picture_in_picture_alt</span>
+                </button>
+              </div>
             </div>
           } />
           <Route path="/stopwatch" element={timerWidgetUi} />
@@ -595,17 +617,37 @@ function App() {
               <span className="material-symbols-outlined text-[20px]">leaderboard</span>
             </button>
 
-            <button onClick={() => { setSidebarOpen(true); setRightPanelOpen(false); }} className="text-on-surface-variant hover:bg-white/10 transition-all p-2 rounded-full flex items-center justify-center" title="Settings">
+            <button onClick={() => { setSidebarOpen(true); setRightPanelOpen(false); }} className="text-on-surface-variant hover:bg-white/10 transition-all p-2 rounded-full flex items-center justify-center cursor-pointer" title="Settings">
               <span className="material-symbols-outlined text-[20px]">settings</span>
             </button>
 
-            <button onClick={toggleFullscreen} className="text-on-surface-variant hover:bg-white/10 transition-all p-2 rounded-full flex items-center justify-center" title="Fullscreen">
+            <button onClick={() => window.dispatchEvent(new CustomEvent('toggle-pip'))} className="text-on-surface-variant hover:bg-white/10 transition-all p-2 rounded-full flex items-center justify-center cursor-pointer" title="Floating Mini Timer (P)">
+              <span className="material-symbols-outlined text-[20px]">picture_in_picture_alt</span>
+            </button>
+
+            <button onClick={toggleFullscreen} className="text-on-surface-variant hover:bg-white/10 transition-all p-2 rounded-full flex items-center justify-center cursor-pointer" title="Fullscreen">
               <span className="material-symbols-outlined text-[20px]">{isFullscreen ? 'fullscreen_exit' : 'fullscreen'}</span>
             </button>
           </div>
         )}
 
-        <button onClick={() => setRightPanelOpen(!rightPanelOpen)} className="glass-panel rounded-full p-4 hover:bg-white/10 transition-all border border-white/20 shadow-2xl bg-surface/50 text-primary">
+        {/* Floating Mini Timer Engine (always mounted so PiP window never closes on navigation) */}
+        <FloatingPipTimer
+          mode={mode}
+          isRunning={isRunning}
+          displayTime={getDisplayTime()}
+          currentTag={currentTag}
+          start={start}
+          pause={pause}
+          reset={reset}
+          lap={lap}
+          setMode={setMode}
+          formatTime={formatTime}
+          dailyTotal={dailyTotal}
+          showButton={false}
+        />
+
+        <button onClick={() => setRightPanelOpen(!rightPanelOpen)} className="glass-panel rounded-full p-4 hover:bg-white/10 transition-all border border-white/20 shadow-2xl bg-surface/50 text-primary cursor-pointer">
           <span className="material-symbols-outlined">{rightPanelOpen ? 'close' : 'menu'}</span>
         </button>
       </div>

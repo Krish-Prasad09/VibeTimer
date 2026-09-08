@@ -146,6 +146,10 @@ export function useTimer() {
                         document.exitFullscreen?.();
                     }
                     break;
+                case 'p':
+                case 'P':
+                    window.dispatchEvent(new CustomEvent('toggle-pip'));
+                    break;
                 case '1':
                     timerRef.current?.setMode('pomodoro');
                     break;
