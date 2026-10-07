@@ -1,17 +1,7 @@
 import { DEFAULT_TAG } from './tags.js';
+import { getLogicalDateStr, recordSession } from './historyManager.js';
 
-export function getLogicalDateStr() {
-    const now = new Date();
-    // Shift back by 4 hours
-    const shifted = new Date(now.getTime() - 4 * 60 * 60 * 1000);
-    // Convert to IST string (Asia/Kolkata is UTC+5:30)
-    const options = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' };
-    const parts = new Intl.DateTimeFormat('en-GB', options).formatToParts(shifted);
-    const day = parts.find(p => p.type === 'day').value;
-    const month = parts.find(p => p.type === 'month').value;
-    const year = parts.find(p => p.type === 'year').value;
-    return `${year}-${month}-${day}`;
-}
+export { getLogicalDateStr };
 
 export class FocusTimer {
     constructor(onTickCallback, onCompleteCallback) {
@@ -77,7 +67,15 @@ export class FocusTimer {
                         }
                     }
                 } else {
-                    // It's a new day! Reset everything to 0 or defaults.
+                    // It's a new day! Archive the previous day's stats if any, then reset for today.
+                    if (parsed.currentDate && ((parsed.dailyTotal && parsed.dailyTotal > 0) || (parsed.laps && parsed.laps.length > 0))) {
+                        recordSession({
+                            date: parsed.currentDate,
+                            totalMs: parsed.dailyTotal || 0,
+                            laps: parsed.laps || [],
+                            tags: parsed.tags || {}
+                        });
+                    }
                     this.dailyTotal = 0;
                     this.laps = [];
                     this.tags = {};
@@ -250,6 +248,14 @@ export class FocusTimer {
     checkDate() {
         const today = getLogicalDateStr();
         if (this.currentDate !== today) {
+            if (this.dailyTotal > 0 || (this.laps && this.laps.length > 0)) {
+                recordSession({
+                    date: this.currentDate,
+                    totalMs: this.dailyTotal,
+                    laps: this.laps,
+                    tags: this.tags
+                });
+            }
             this.dailyTotal = 0;
             this.laps = [];
             this.tags = {};
@@ -274,6 +280,15 @@ export class FocusTimer {
             currentDate: this.currentDate,
             lastTickTime: this.lastTickTime || Date.now()
         }));
+
+        if (this.dailyTotal > 0 || (this.laps && this.laps.length > 0)) {
+            recordSession({
+                date: this.currentDate,
+                totalMs: this.dailyTotal,
+                laps: this.laps,
+                tags: this.tags
+            });
+        }
     }
 
     start(broadcast = true) {

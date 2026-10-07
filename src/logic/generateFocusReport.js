@@ -1,3 +1,5 @@
+import { getLogicalDateOffset, formatLogicalDateDisplay } from './historyManager.js';
+
 export function generateFocusReport(period, fetchedData, userName) {
   if (!fetchedData) return;
 
@@ -43,16 +45,14 @@ export function generateFocusReport(period, fetchedData, userName) {
   const dailyRows = [];
 
   for (let i = periodDays - 1; i >= 0; i--) {
-    const d = new Date(dRef);
-    d.setDate(d.getDate() - i);
-    const dateStr = fmtDate(d);
+    const dateStr = getLogicalDateOffset(i);
     const ms = dataMap[dateStr] || 0;
     thisPeriodMs += ms;
 
     dailyRows.push({
       date: dateStr,
-      dayName: d.toLocaleDateString('en-US', { weekday: 'short' }),
-      monthDay: formatShort(d),
+      dayName: formatLogicalDateDisplay(dateStr, { weekday: 'short' }),
+      monthDay: formatLogicalDateDisplay(dateStr, { month: 'short', day: 'numeric' }),
       hours: Number((ms / 3600000).toFixed(2)),
       minutes: Math.round(ms / 60000),
       tags: tagMapByDate[dateStr] || {},
@@ -60,9 +60,8 @@ export function generateFocusReport(period, fetchedData, userName) {
   }
 
   for (let i = periodDays; i < periodDays * 2; i++) {
-    const d = new Date(dRef);
-    d.setDate(d.getDate() - i);
-    lastPeriodMs += dataMap[fmtDate(d)] || 0;
+    const dateStr = getLogicalDateOffset(i);
+    lastPeriodMs += dataMap[dateStr] || 0;
   }
 
   const thisPeriodHours = Number((thisPeriodMs / 3600000).toFixed(2));
@@ -89,9 +88,8 @@ export function generateFocusReport(period, fetchedData, userName) {
   // Streaks
   let currentStreak = 0;
   for (let i = 0; i < 365; i++) {
-    const d = new Date(dRef);
-    d.setDate(d.getDate() - i);
-    const ms = dataMap[fmtDate(d)] || 0;
+    const dateStr = getLogicalDateOffset(i);
+    const ms = dataMap[dateStr] || 0;
     if (i === 0 && ms < 1800000) continue;
     if (ms >= 1800000) currentStreak++;
     else if (i > 0) break;
@@ -100,9 +98,8 @@ export function generateFocusReport(period, fetchedData, userName) {
   let longestStreak = 0;
   let tempStreak = 0;
   for (let i = 364; i >= 0; i--) {
-    const d = new Date(dRef);
-    d.setDate(d.getDate() - i);
-    const ms = dataMap[fmtDate(d)] || 0;
+    const dateStr = getLogicalDateOffset(i);
+    const ms = dataMap[dateStr] || 0;
     if (ms >= 1800000) {
       tempStreak++;
       if (tempStreak > longestStreak) longestStreak = tempStreak;
@@ -115,9 +112,8 @@ export function generateFocusReport(period, fetchedData, userName) {
   // Consistency (last 30 days)
   let activeDays30 = 0;
   for (let i = 0; i < 30; i++) {
-    const d = new Date(dRef);
-    d.setDate(d.getDate() - i);
-    if ((dataMap[fmtDate(d)] || 0) > 0) activeDays30++;
+    const dateStr = getLogicalDateOffset(i);
+    if ((dataMap[dateStr] || 0) > 0) activeDays30++;
   }
   const consistency = Math.round((activeDays30 / 30) * 100);
 

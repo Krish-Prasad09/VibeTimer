@@ -6,7 +6,7 @@ import './StatsPage.css';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { generateFocusReport } from '../logic/generateFocusReport';
 import { TAG_COLORS } from '../logic/tags';
-import { getLogicalDateStr } from '../logic/Timer';
+import { getLogicalDateStr, getLogicalDateOffset, formatLogicalDateDisplay, getMergedHistory } from '../logic/historyManager';
 
 export default function StatsPage() {
   const navigate = useNavigate();
@@ -14,41 +14,9 @@ export default function StatsPage() {
   const { user, isLoaded } = useUser();
   const fetchedData = useQuery(api.stats.getStats, user ? undefined : "skip");
 
-  // Fallback to local timer data if user is not signed in or fetchedData is unavailable
+  // Merge persistent local history with Convex database stats (offline & guest friendly)
   const effectiveData = useMemo(() => {
-    if (fetchedData && Array.isArray(fetchedData) && fetchedData.length > 0) {
-      return fetchedData;
-    }
-
-    const localEntries = [];
-    const todayStr = getLogicalDateStr();
-
-    try {
-      const savedTimerState = localStorage.getItem('focusTimerState');
-      if (savedTimerState) {
-        const parsed = JSON.parse(savedTimerState);
-        const dateStr = parsed.currentDate || todayStr;
-        localEntries.push({
-          date: dateStr,
-          totalMs: parsed.dailyTotal || 0,
-          tags: parsed.tags || {},
-          laps: parsed.laps || []
-        });
-      }
-    } catch (e) {
-      console.warn("Failed to parse local timer state", e);
-    }
-
-    if (localEntries.length === 0) {
-      localEntries.push({
-        date: todayStr,
-        totalMs: 0,
-        tags: {},
-        laps: []
-      });
-    }
-
-    return localEntries;
+    return getMergedHistory(fetchedData);
   }, [fetchedData]);
 
   const [comparePeriod, setComparePeriod] = useState('weekly');
@@ -83,37 +51,31 @@ export default function StatsPage() {
 
     if (comparePeriod === 'weekly') {
       for (let i = 0; i < 7; i++) {
-        const d = new Date(dRef);
-        d.setDate(d.getDate() - i);
-        thisPeriodMs += dataMap[d.toISOString().split('T')[0]] || 0;
+        const dateStr = getLogicalDateOffset(i);
+        thisPeriodMs += dataMap[dateStr] || 0;
       }
       for (let i = 7; i < 14; i++) {
-        const d = new Date(dRef);
-        d.setDate(d.getDate() - i);
-        lastPeriodMs += dataMap[d.toISOString().split('T')[0]] || 0;
+        const dateStr = getLogicalDateOffset(i);
+        lastPeriodMs += dataMap[dateStr] || 0;
       }
     } else if (comparePeriod === 'monthly') {
       for (let i = 0; i < 28; i++) {
-        const d = new Date(dRef);
-        d.setDate(d.getDate() - i);
-        thisPeriodMs += dataMap[d.toISOString().split('T')[0]] || 0;
+        const dateStr = getLogicalDateOffset(i);
+        thisPeriodMs += dataMap[dateStr] || 0;
       }
       for (let i = 28; i < 56; i++) {
-        const d = new Date(dRef);
-        d.setDate(d.getDate() - i);
-        lastPeriodMs += dataMap[d.toISOString().split('T')[0]] || 0;
+        const dateStr = getLogicalDateOffset(i);
+        lastPeriodMs += dataMap[dateStr] || 0;
       }
     } else {
       // allTime: compare last 365 days vs prior 365 days
       for (let i = 0; i < 365; i++) {
-        const d = new Date(dRef);
-        d.setDate(d.getDate() - i);
-        thisPeriodMs += dataMap[d.toISOString().split('T')[0]] || 0;
+        const dateStr = getLogicalDateOffset(i);
+        thisPeriodMs += dataMap[dateStr] || 0;
       }
       for (let i = 365; i < 730; i++) {
-        const d = new Date(dRef);
-        d.setDate(d.getDate() - i);
-        lastPeriodMs += dataMap[d.toISOString().split('T')[0]] || 0;
+        const dateStr = getLogicalDateOffset(i);
+        lastPeriodMs += dataMap[dateStr] || 0;
       }
     }
 
@@ -135,18 +97,17 @@ export default function StatsPage() {
       totalAllTimeMs += ms;
       if (ms > bestDayMs) {
         bestDayMs = ms;
-        bestDayStr = new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        bestDayStr = formatLogicalDateDisplay(date, { month: 'short', day: 'numeric' });
       }
     });
     const totalAllTimeHours = (totalAllTimeMs / 3600000).toFixed(1);
 
     const heatmapDays = [];
     for (let i = 364; i >= 0; i--) {
-      const d = new Date(dRef);
-      d.setDate(d.getDate() - i);
+      const dateStr = getLogicalDateOffset(i);
       heatmapDays.push({
-        date: d.toISOString().split('T')[0],
-        totalMs: dataMap[d.toISOString().split('T')[0]] || 0
+        date: dateStr,
+        totalMs: dataMap[dateStr] || 0
       });
     }
 
@@ -154,42 +115,37 @@ export default function StatsPage() {
     let maxChartMs = 1;
     if (comparePeriod === 'weekly') {
       for (let i = 6; i >= 0; i--) {
-        const d1 = new Date(dRef);
-        d1.setDate(d1.getDate() - i);
-        const currMs = dataMap[d1.toISOString().split('T')[0]] || 0;
+        const d1Str = getLogicalDateOffset(i);
+        const currMs = dataMap[d1Str] || 0;
         
-        const d2 = new Date(dRef);
-        d2.setDate(d2.getDate() - i - (compareOffset * 7));
-        const prevMs = dataMap[d2.toISOString().split('T')[0]] || 0;
+        const d2Str = getLogicalDateOffset(i + (compareOffset * 7));
+        const prevMs = dataMap[d2Str] || 0;
         
         maxChartMs = Math.max(maxChartMs, currMs, prevMs);
-        barChartData.push({ label: d1.toLocaleDateString('en-US', { weekday: 'short' }), currMs, prevMs });
+        barChartData.push({ label: formatLogicalDateDisplay(d1Str, { weekday: 'short' }), currMs, prevMs });
       }
     } else if (comparePeriod === 'monthly') {
       for (let i = 3; i >= 0; i--) {
         let currMs = 0; let prevMs = 0;
         for (let j = 0; j < 7; j++) {
-           const d1 = new Date(dRef); d1.setDate(d1.getDate() - (i * 7 + j));
-           currMs += dataMap[d1.toISOString().split('T')[0]] || 0;
-           const d2 = new Date(dRef); d2.setDate(d2.getDate() - (i * 7 + j) - (compareOffset * 28));
-           prevMs += dataMap[d2.toISOString().split('T')[0]] || 0;
+           const d1Str = getLogicalDateOffset(i * 7 + j);
+           currMs += dataMap[d1Str] || 0;
+           const d2Str = getLogicalDateOffset(i * 7 + j + (compareOffset * 28));
+           prevMs += dataMap[d2Str] || 0;
         }
         maxChartMs = Math.max(maxChartMs, currMs, prevMs);
         barChartData.push({ label: `W${4 - i}`, currMs, prevMs });
       }
     } else {
-      // All Time: show last 6 months
+      // All Time: show last 6 periods of 30 days
       for (let i = 5; i >= 0; i--) {
-        const d1 = new Date(dRef.getFullYear(), dRef.getMonth() - i, 1);
-        const monthLabel = d1.toLocaleDateString('en-US', { month: 'short' });
+        const refDateStr = getLogicalDateOffset(i * 30);
+        const monthLabel = formatLogicalDateDisplay(refDateStr, { month: 'short' });
         let currMs = 0; let prevMs = 0;
-        const year = d1.getFullYear();
-        const month = d1.getMonth();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        for (let d = 1; d <= daysInMonth; d++) {
-          const dateStr = new Date(year, month, d).toISOString().split('T')[0];
+        for (let d = 0; d < 30; d++) {
+          const dateStr = getLogicalDateOffset(i * 30 + d);
           currMs += dataMap[dateStr] || 0;
-          const prevDateStr = new Date(year - compareOffset, month, d).toISOString().split('T')[0];
+          const prevDateStr = getLogicalDateOffset(i * 30 + d + (compareOffset * 365));
           prevMs += dataMap[prevDateStr] || 0;
         }
         maxChartMs = Math.max(maxChartMs, currMs, prevMs);
@@ -201,9 +157,7 @@ export default function StatsPage() {
     const periodTagSum = {};
     const periodDays = comparePeriod === 'weekly' ? 7 : comparePeriod === 'monthly' ? 28 : 365;
     for (let i = 0; i < periodDays; i++) {
-      const d = new Date(dRef);
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = getLogicalDateOffset(i);
       const dayData = effectiveData.find(fd => fd.date === dateStr);
       if (dayData && dayData.tags) {
         for (const [tag, duration] of Object.entries(dayData.tags)) {
@@ -220,9 +174,7 @@ export default function StatsPage() {
 
     let currentStreak = 0;
     for (let i = 0; i < 365; i++) {
-      const d = new Date(dRef);
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = getLogicalDateOffset(i);
       const ms = dataMap[dateStr] || 0;
       if (i === 0 && ms < 1800000) continue;
       if (ms >= 1800000) currentStreak++;
@@ -232,9 +184,7 @@ export default function StatsPage() {
     let longestStreak = 0;
     let tempStreak = 0;
     for (let i = 364; i >= 0; i--) {
-      const d = new Date(dRef);
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = getLogicalDateOffset(i);
       const ms = dataMap[dateStr] || 0;
       if (ms >= 1800000) {
         tempStreak++;
@@ -247,18 +197,15 @@ export default function StatsPage() {
 
     let activeDaysLast30 = 0;
     for (let i = 0; i < 30; i++) {
-      const d = new Date(dRef);
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = getLogicalDateOffset(i);
       if ((dataMap[dateStr] || 0) > 0) activeDaysLast30++;
     }
     const consistency = Math.round((activeDaysLast30 / 30) * 100);
 
     let actualThisWeekMs = 0;
     for (let i = 0; i < 7; i++) {
-      const d = new Date(dRef);
-      d.setDate(d.getDate() - i);
-      actualThisWeekMs += dataMap[d.toISOString().split('T')[0]] || 0;
+      const dateStr = getLogicalDateOffset(i);
+      actualThisWeekMs += dataMap[dateStr] || 0;
     }
     const actualThisWeekHours = Number((actualThisWeekMs / 3600000).toFixed(1));
     const weeklyProgressPercent = Math.min(100, Math.round((actualThisWeekHours / 72) * 100));
@@ -284,7 +231,7 @@ export default function StatsPage() {
   useEffect(() => {
     if (!user || !stats || aiSuggestions[comparePeriod] || suggestionLoading) return;
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLogicalDateStr();
     const cacheKey = `aiSuggestionCache_${comparePeriod}`;
     const cached = localStorage.getItem(cacheKey);
 

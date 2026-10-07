@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TAGS } from './logic/tags';
 import { useTimer } from './hooks/useTimer';
-import { getLogicalDateStr } from './logic/Timer';
+import { getLogicalDateStr, getStoredHistory, recordSession } from './logic/historyManager';
 import TodoWidget from './components/TodoWidget';
 import NotesWidget from './components/NotesWidget';
 import StatsWidget from './components/StatsWidget';
@@ -155,16 +155,36 @@ function App() {
   const syncStats = useMutation(api.stats.syncDailyTotal);
   const dbStats = useQuery(api.stats.getStats);
 
-  // Sync dailyTotal from Convex down to local state
+  // Sync dailyTotal from Convex down to local state, cache DB records, and back-sync offline history
   useEffect(() => {
-    if (user && dbStats) {
+    if (user && dbStats && Array.isArray(dbStats)) {
       const today = getLogicalDateStr();
       const todayStat = dbStats.find(s => s.date === today);
       if (todayStat) {
         syncFromDb(todayStat.totalMs || 0, todayStat.laps || [], todayStat.tags || {});
       }
+
+      // Cache all DB records in persistent local storage
+      for (const stat of dbStats) {
+        recordSession(stat);
+      }
+
+      // Back-sync any local offline/guest sessions to Convex
+      const localHistory = getStoredHistory();
+      const dbMap = new Map(dbStats.map(s => [s.date, s]));
+      for (const [date, localEntry] of Object.entries(localHistory)) {
+        const remote = dbMap.get(date);
+        if (!remote || localEntry.totalMs > (remote.totalMs || 0)) {
+          syncStats({
+            date,
+            totalMs: localEntry.totalMs,
+            laps: localEntry.laps || [],
+            tags: localEntry.tags || {}
+          }).catch(err => console.error("Back-sync failed for " + date, err));
+        }
+      }
     }
-  }, [user, dbStats, syncFromDb]);
+  }, [user, dbStats, syncFromDb, syncStats]);
 
   // Track latest stats for periodic syncing
   const latestStats = useRef({ dailyTotal, laps, tags });

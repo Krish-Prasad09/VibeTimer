@@ -18,10 +18,20 @@ export const syncDailyTotal = mutation({
       .unique();
 
     if (existing) {
+      const mergedTags = { ...(existing.tags || {}) };
+      if (args.tags) {
+        for (const [tag, duration] of Object.entries(args.tags)) {
+          mergedTags[tag] = Math.max(mergedTags[tag] || 0, duration);
+        }
+      }
+      const mergedLaps = (args.laps && args.laps.length >= (existing.laps?.length || 0))
+        ? args.laps
+        : (existing.laps || []);
+
       await ctx.db.patch(existing._id, { 
-        totalMs: args.totalMs,
-        laps: args.laps || existing.laps || [],
-        tags: args.tags || existing.tags || {}
+        totalMs: Math.max(args.totalMs, existing.totalMs || 0),
+        laps: mergedLaps,
+        tags: mergedTags
       });
     } else {
       await ctx.db.insert("stats", {

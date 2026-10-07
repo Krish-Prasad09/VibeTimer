@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { getLogicalDateStr } from '../logic/Timer';
+import { getLogicalDateStr, getLogicalDateOffset, formatLogicalDateDisplay, getMergedHistory } from '../logic/historyManager';
 
 export default function StatsWidget({ onClose, user }) {
   const fetchedData = useQuery(api.stats.getStats, user ? undefined : "skip");
@@ -10,40 +10,9 @@ export default function StatsWidget({ onClose, user }) {
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState('heatmap'); // 'heatmap' or 'graph'
 
+  // Merge persistent local history with Convex database stats (offline & guest friendly)
   const effectiveData = useMemo(() => {
-    if (fetchedData && Array.isArray(fetchedData) && fetchedData.length > 0) {
-      return fetchedData;
-    }
-
-    const localEntries = [];
-    const todayStr = getLogicalDateStr();
-
-    try {
-      const savedTimerState = localStorage.getItem('focusTimerState');
-      if (savedTimerState) {
-        const parsed = JSON.parse(savedTimerState);
-        const dateStr = parsed.currentDate || todayStr;
-        localEntries.push({
-          date: dateStr,
-          totalMs: parsed.dailyTotal || 0,
-          tags: parsed.tags || {},
-          laps: parsed.laps || []
-        });
-      }
-    } catch (e) {
-      console.warn("Failed to parse local timer state", e);
-    }
-
-    if (localEntries.length === 0) {
-      localEntries.push({
-        date: todayStr,
-        totalMs: 0,
-        tags: {},
-        laps: []
-      });
-    }
-
-    return localEntries;
+    return getMergedHistory(fetchedData);
   }, [fetchedData]);
 
   const stats = useMemo(() => {
@@ -58,22 +27,15 @@ export default function StatsWidget({ onClose, user }) {
       }
     });
 
-    const dRef = new Date();
-    dRef.setTime(dRef.getTime() - 4 * 60 * 60 * 1000); // shift 4 hours for logical day
-
     let thisWeekMs = 0;
     for (let i = 0; i < 7; i++) {
-      const d = new Date(dRef);
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = getLogicalDateOffset(i);
       thisWeekMs += dataMap[dateStr] || 0;
     }
 
     let lastWeekMs = 0;
     for (let i = 7; i < 14; i++) {
-      const d = new Date(dRef);
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = getLogicalDateOffset(i);
       lastWeekMs += dataMap[dateStr] || 0;
     }
 
@@ -89,25 +51,21 @@ export default function StatsWidget({ onClose, user }) {
 
     const heatmapDays = [];
     for (let i = 89; i >= 0; i--) {
-      const d = new Date(dRef);
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = getLogicalDateOffset(i);
       heatmapDays.push({
         date: dateStr,
-        displayDate: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        displayDate: formatLogicalDateDisplay(dateStr, { month: 'short', day: 'numeric' }),
         totalMs: dataMap[dateStr] || 0
       });
     }
 
     const barChartData = [];
     for (let i = 6; i >= 0; i--) {
-      const d = new Date(dRef);
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = getLogicalDateOffset(i);
       const ms = dataMap[dateStr] || 0;
       barChartData.push({
         dateStr,
-        displayDate: d.toLocaleDateString('en-US', { weekday: 'short' }),
+        displayDate: formatLogicalDateDisplay(dateStr, { weekday: 'short' }),
         hours: parseFloat((ms / 3600000).toFixed(2))
       });
     }
@@ -125,7 +83,7 @@ export default function StatsWidget({ onClose, user }) {
       barChartData,
       pieChartData
     };
-  }, [fetchedData]);
+  }, [effectiveData]);
 
   const getIntensityClass = (totalMs) => {
     if (totalMs === 0) return 'bg-white/10';
